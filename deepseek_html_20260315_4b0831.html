@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>২ জিবি অ্যান্টিভাইরাস স্ক্যানার</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #0dcaf0;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-weight: bold;
+            color: var(--primary-color) !important;
+            font-size: 1.5rem;
+        }
+        
+        .main-container {
+            padding: 40px 20px;
+        }
+        
+        .upload-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 50px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--primary-color);
+            background: #e7f1ff;
+        }
+        
+        .upload-area i {
+            font-size: 64px;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+        
+        .upload-area.dragover {
+            border-color: var(--success-color);
+            background: #d1e7dd;
+        }
+        
+        .file-info {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .scan-progress {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+        
+        .scan-results {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+        
+        .risk-badge {
+            padding: 8px 15px;
+            border-radius: 50px;
+            font-weight: bold;
+            color: white;
+        }
+        
+        .risk-High { background: var(--danger-color); }
+        .risk-Medium { background: var(--warning-color); color: black; }
+        .risk-Low { background: var(--success-color); }
+        .risk-Clean { background: var(--primary-color); }
+        
+        .threat-item {
+            background: #f8f9fa;
+            border-left: 4px solid var(--danger-color);
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .threat-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .threat-item.heuristic { border-left-color: var(--warning-color); }
+        .threat-item.yara { border-left-color: var(--primary-color); }
+        .threat-item.pe_analysis { border-left-color: #6f42c1; }
+        .threat-item.signature { border-left-color: #20c997; }
+        .threat-item.pattern_match { border-left-color: #fd7e14; }
+        .threat-item.entropy { border-left-color: #0dcaf0; }
+        
+        .progress {
+            height: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            background: #e9ecef;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, var(--primary-color), #764ba2);
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .stats-card {
+            background: linear-gradient(135deg, var(--primary-color), #764ba2);
+            color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin: 10px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+        
+        .hash-value {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            background: #e9ecef;
+            padding: 8px;
+            border-radius: 5px;
+            word-break: break-all;
+            border: 1px solid #dee2e6;
+        }
+        
+        .btn-scan {
+            background: linear-gradient(135deg, var(--primary-color), #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-scan:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            color: white;
+        }
+        
+        .btn-scan:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .btn-cancel {
+            background: var(--danger-color);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-cancel:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(220, 53, 69, 0.4);
+            color: white;
+        }
+        
+        .scan-time {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 10px;
+        }
+        
+        .active-scans-badge {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--info-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-weight: bold;
+            z-index: 1000;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+        
+        .file-size-warning {
+            color: var(--warning-color);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 768px) {
+            .upload-area {
+                padding: 30px;
+            }
+            
+            .upload-area i {
+                font-size: 48px;
+            }
+            
+            .stats-card {
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Active Scans Badge -->
+    <div class="active-scans-badge" id="activeScansBadge">
+        <i class="bi bi-play-circle"></i>
+        <span id="activeScansCount">0</span> সক্রিয় স্ক্যান
+    </div>
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="bi bi-shield-shaded"></i>
+                ২ জিবি অ্যান্টিভাইরাস স্ক্যানার
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('scan')">
+                            <i class="bi bi-search"></i> স্ক্যান
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('history')">
+                            <i class="bi bi-clock-history"></i> ইতিহাস
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('stats')">
+                            <i class="bi bi-graph-up"></i> পরিসংখ্যান
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#" onclick="showSection('active')">
+                            <i class="bi bi-play-circle"></i> সক্রিয়
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container main-container">
+        <!-- Scan Section -->
+        <div id="scan-section" class="section active">
+            <div class="upload-card">
+                <h2 class="text-center mb-4">
+                    <i class="bi bi-cloud-upload"></i>
+                    ২ জিবি পর্যন্ত ফাইল আপলোড করুন
+                </h2>
+                
+                <div class="upload-area" id="dropZone">
+                    <i class="bi bi-file-earmark-arrow-up"></i>
+                    <h4>ফাইল নির্বাচন করুন বা এখানে ড্র্যাগ করুন</h4>
+                    <p class="text-muted">সর্বোচ্চ ২ জিবি (২,০৪৮ এমবি)</p>
+                    <div class="file-size-warning" id="fileSizeWarning"></div>
+                    <input type="file" id="fileInput" style="display: none" onchange="handleFileSelect(this)">
+                </div>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>ফাইলের নাম:</strong> <span id="fileName"></span></p>
+                            <p><strong>আকার:</strong> <span id="fileSize"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>টাইপ:</strong> <span id="fileType"></span></p>
+                            <p><strong>শেষ পরিবর্তন:</strong> <span id="fileModified"></span></p>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-scan" onclick="startScan()" id="startScanBtn">
+                            <i class="bi bi-shield-check"></i>
+                            স্ক্যান শুরু করুন
+                        </button>
+                        <button class="btn btn-secondary" onclick="resetUpload()">
+                            <i class="bi bi-arrow-repeat"></i>
+                            নতুন ফাইল নির্বাচন
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Scan Progress -->
+            <div class="scan-progress" id="scanProgress" style="display: none;">
+                <h3 class="mb-4">
+                    <i class="bi bi-hourglass-split"></i>
+                    স্ক্যান চলছে...
+                </h3>
+                
+                <div class="text-center mb-3">
+                    <span class="badge bg-info" id="scanStage">প্রস্তুতি নিচ্ছে</span>
+                </div>
+                
+                <div class="progress">
+                    <div class="progress-bar" id="scanProgressBar" style="width: 0%">0%</div>
+                </div>
+                
+                <p class="text-center mt-3" id="scanMessage">দয়া করে অপেক্ষা করুন...</p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3 id="fileSizeProgress">-</h3>
+                            <p>ফাইলের আকার</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3 id="timeElapsed">00:00</h3>
+                            <p>অতিবাহিত সময়</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="stats-card text-center">
+                            <h3 id="estimatedTime">-</h3>
+                            <p>অবশিষ্ট সময়</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <button class="btn btn-cancel" onclick="cancelScan()">
+                        <i class="bi bi-x-circle"></i>
+                        স্ক্যান বাতিল
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Scan Results -->
+            <div class="scan-results" id="scanResults" style="display: none;">
+                <h3 class="mb-4">
+                    <i class="bi bi-shield-check"></i>
+                    স্ক্যান ফলাফল
+                </h3>
+                
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5>ফাইলের তথ্য</h5>
+                                <table class="table table-borderless">
+                                    <tr>
+                                        <th>নাম:</th>
+                                        <td id="resultFileName"></td>
+                                    </tr>
+                                    <tr>
+                                        <th>আকার:</th>
+                                        <td id="resultFileSize"></td>
+                                    </tr>
+                                    <tr>
+                                        <th>টাইপ:</th>
+                                        <td id="resultFileType"></td>
+                                    </tr>
+                                    <tr>
+                                        <th>স্ক্যান আইডি:</th>
+                                        <td id="scanId"></td>
+                                    </tr>
+                                    <tr>
+                                        <th>স্ক্যান সময়:</th>
+                                        <td id="scanDuration"></td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5>হ্যাশ ভ্যালু</h5>
+                                <div class="hash-value mb-2">
+                                    <small>MD5: <span id="hashMd5"></span></small>
+                                </div>
+                                <div class="hash-value mb-2">
+                                    <small>SHA1: <span id="hashSha1"></span></small>
+                                </div>
+                                <div class="hash-value">
+                                    <small>SHA256: <span id="hashSha256"></span></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="stats-card text-center" id="riskLevel">
+                            <h2 id="riskTitle">ঝুঁকির মাত্রা</h2>
+                            <h1 id="riskValue">-</h1>
+                        </div>
+                        
+                        <div class="stats-card text-center" style="background: var(--info-color);">
+                            <h3 id="threatCount">0</h3>
+                            <p>শনাক্ত হুমকি</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4 class="mt-4">শনাক্ত হুমকি</h4>
+                <div id="threatList"></div>
+                
+                <div class="mt-4">
+                    <button class="btn btn-danger" onclick="quarantineFile()" id="quarantineBtn">
+                        <i class="bi bi-lock"></i>
+                        কোয়ারেন্টাইনে সরান
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetScanner()">
+                        <i class="bi bi-arrow-repeat"></i>
+                        নতুন স্ক্যান
+                    </button>
+                    <button class="btn btn-info" onclick="downloadReport()">
+                        <i class="bi bi-download"></i>
+                        রিপোর্ট ডাউনলোড
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Active Scans Section -->
+        <div id="active-section" class="section" style="display: none;">
+            <div class="upload-card">
+                <h3 class="mb-4">
+                    <i class="bi bi-play-circle"></i>
+                    সক্রিয় স্ক্যান
+                </h3>
+                <div id="activeScansList"></div>
+            </div>
+        </div>
+        
+        <!-- History Section -->
+        <div id="history-section" class="section" style="display: none;">
+            <div class="upload-card">
+                <h3 class="mb-4">
+                    <i class="bi bi-clock-history"></i>
+                    স্ক্যান ইতিহাস
+                </h3>
+                <div class="mb-3">
+                    <input type="text" class="form-control" placeholder="ইতিহাসে খুঁজুন..." id="historySearch">
+                </div>
+                <div id="historyList"></div>
+            </div>
+        </div>
+        
+        <!-- Stats Section -->
+        <div id="stats-section" class="section" style="display: none;">
+            <div class="upload-card">
+                <h3 class="mb-4">
+                    <i class="bi bi-graph-up"></i>
+                    পরিসংখ্যান
+                </h3>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stats-card">
+                            <h3 id="totalScans">0</h3>
+                            <p>মোট স্ক্যান</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card" style="background: var(--danger-color);">
+                            <h3 id="threatsFound">0</h3>
+                            <p>হুমকি শনাক্ত</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card" style="background: var(--success-color);">
+                            <h3 id="cleanFiles">0</h3>
+                            <p>ক্লিন ফাইল</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stats-card" style="background: var(--info-color);">
+                            <h3 id="totalData">0 GB</h3>
+                            <p>স্ক্যানকৃত ডাটা</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <canvas id="statsChart" class="mt-4"></canvas>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h5>হুমকির ধরন</h5>
+                        <canvas id="threatChart"></canvas>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>স্ক্যানের সময়</h5>
+                        <canvas id="timeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="bi bi-info-circle me-2"></i>
+                <strong class="me-auto">বিজ্ঞপ্তি</strong>
+                <small>এখনই</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO connection
+        const socket = io({
+            maxHttpBufferSize: 2 * 1024 * 1024 * 1024 // 2GB
+        });
+        
+        let currentScanId = null;
+        let currentFile = null;
+        let currentScanResult = null;
+        let activeScans = new Map();
+        let timerInterval = null;
+        
+        socket.on('connect', function() {
+            console.log('Connected to server');
+            showToast('সংযুক্ত হয়েছে', 'success');
+        });
+        
+        socket.on('scan_started', function(data) {
+            currentScanId = data.scan_id;
+            activeScans.set(currentScanId, {
+                id: currentScanId,
+                startTime: Date.now()
+            });
+            updateActiveScansBadge();
+            showScanProgress();
+        });
+        
+        socket.on('scan_update', function(data) {
+            if (data.scan_id === currentScanId) {
+                updateProgress(data);
+            }
+        });
+        
+        socket.on('scan_completed', function(data) {
+            if (data.scan_id === currentScanId) {
+                currentScanResult = data.result;
+                displayScanResults(data.result);
+                activeScans.delete(currentScanId);
+                updateActiveScansBadge();
+                clearInterval(timerInterval);
+                showToast('স্ক্যান সম্পন্ন হয়েছে', 'success');
+            }
+        });
+        
+        socket.on('scan_error', function(data) {
+            if (data.scan_id === currentScanId) {
+                showToast('স্ক্যান করতে সমস্যা হয়েছে: ' + data.error, 'error');
+                resetScanner();
+                activeScans.delete(currentScanId);
+                updateActiveScansBadge();
+                clearInterval(timerInterval);
+            }
+        });
+        
+        socket.on('scan_cancelled', function(data) {
+            if (data.scan_id === currentScanId) {
+                showToast('স্ক্যান বাতিল করা হয়েছে', 'warning');
+                resetScanner();
+                activeScans.delete(currentScanId);
+                updateActiveScansBadge();
+                clearInterval(timerInterval);
+            }
+        });
+        
+        // File handling
+        function handleFileSelect(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                
+                // Check file size (2GB limit)
+                if (file.size > 2 * 1024 * 1024 * 1024) {
+                    showToast('ফাইল ২ জিবির বেশি হতে পারবে না', 'error');
+                    return;
+                }
+                
+                displayFileInfo(file);
+            }
+        }
+        
+        // Drag and drop handling
+        const dropZone = document.getElementById('dropZone');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                const file = e.dataTransfer.files[0];
+                
+                // Check file size
+                if (file.size > 2 * 1024 * 1024 * 1024) {
+                    showToast('ফাইল ২ জিবির বেশি হতে পারবে না', 'error');
+                    return;
+                }
+                
+                displayFileInfo(file);
+                document.getElementById('fileInput').files = e.dataTransfer.files;
+            }
+        });
+        
+        function displayFileInfo(file) {
+            currentFile = file;
+            
+            document.getElementById('fileName').textContent = file.name;
+            document.getElementById('fileSize').textContent = formatFileSize(file.size);
+            document.getElementById('fileType').textContent = file.type || 'অজানা';
+            document.getElementById('fileModified').textContent = new Date(file.lastModified).toLocaleString();
+            
+            // Show warning for large files
+            if (file.size > 1024 * 1024 * 1024) { // > 1GB
+                document.getElementById('fileSizeWarning').innerHTML = 
+                    '<i class="bi bi-exclamation-triangle"></i> বড় ফাইল, স্ক্যান করতে সময় লাগতে পারে';
+            }
+            
+            document.getElementById('fileInfo').style.display = 'block';
+            dropZone.style.display = 'none';
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function formatTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            
+            if (hrs > 0) {
+                return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+        
+        async function startScan() {
+            if (!currentFile) return;
+            
+            const formData = new FormData();
+            formData.append('file', currentFile);
+            
+            try {
+                document.getElementById('startScanBtn').disabled = true;
+                
+                const response = await fetch('/scan', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentScanId = data.scan_id;
+                    showToast('স্ক্যান শুরু হয়েছে', 'info');
+                } else {
+                    const error = await response.json();
+                    showToast(error.error || 'স্ক্যান শুরু করতে সমস্যা হয়েছে', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('স্ক্যান শুরু করতে সমস্যা হয়েছে', 'error');
+            } finally {
+                document.getElementById('startScanBtn').disabled = false;
+            }
+        }
+        
+        function showScanProgress() {
+            document.getElementById('scanProgress').style.display = 'block';
+            document.getElementById('scanResults').style.display = 'none';
+            document.getElementById('fileInfo').style.display = 'none';
+            dropZone.style.display = 'none';
+            
+            // Start timer
+            const startTime = Date.now();
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                document.getElementById('timeElapsed').textContent = formatTime(elapsed);
+                
+                // Estimate remaining time (simplified)
+                const progress = parseFloat(document.getElementById('scanProgressBar').style.width) || 0;
+                if (progress > 0) {
+                    const estimated = Math.floor((elapsed * (100 - progress)) / progress);
+                    document.getElementById('estimatedTime').textContent = formatTime(estimated);
+                }
+            }, 1000);
+        }
+        
+        function updateProgress(data) {
+            document.getElementById('scanProgressBar').style.width = data.progress + '%';
+            document.getElementById('scanProgressBar').textContent = data.progress.toFixed(1) + '%';
+            
+            if (data.stage) {
+                const stages = {
+                    'hash': 'হ্যাশ ক্যালকুলেশন',
+                    'signature': 'সিগনেচার স্ক্যান',
+                    'yara': 'YARA স্ক্যান',
+                    'heuristic': 'হিউরিস্টিক স্ক্যান'
+                };
+                document.getElementById('scanStage').textContent = stages[data.stage] || data.stage;
+            }
+            
+            if (data.message) {
+                document.getElementById('scanMessage').textContent = data.message;
+            }
+            
+            // Update file size progress
+            if (currentFile) {
+                const processed = (data.progress / 100) * currentFile.size;
+                document.getElementById('fileSizeProgress').textContent = formatFileSize(processed);
+            }
+        }
+        
+        function displayScanResults(result) {
+            document.getElementById('scanProgress').style.display = 'none';
+            document.getElementById('scanResults').style.display = 'block';
+            
+            // File info
+            document.getElementById('resultFileName').textContent = result.file_name;
+            document.getElementById('resultFileSize').textContent = formatFileSize(result.file_size);
+            document.getElementById('resultFileType').textContent = result.file_type;
+            document.getElementById('scanId').textContent = result.scan_id;
+            document.getElementById('scanDuration').textContent = formatTime(result.scan_duration);
+            
+            // Hashes
+            if (result.hashes) {
+                document.getElementById('hashMd5').textContent = result.hashes.md5;
+                document.getElementById('hashSha1').textContent = result.hashes.sha1;
+                document.getElementById('hashSha256').textContent = result.hashes.sha256;
+            }
+            
+            // Risk level
+            const riskLevel = result.risk_level || 'Clean';
+            const riskElement = document.getElementById('riskLevel');
+            riskElement.className = 'stats-card text-center risk-' + riskLevel;
+            document.getElementById('riskValue').textContent = riskLevel;
+            
+            // Threat count
+            document.getElementById('threatCount').textContent = result.threats ? result.threats.length : 0;
+            
+            // Enable/disable quarantine button
+            document.getElementById('quarantineBtn').disabled = result.threats.length === 0;
+            
+            // Threats list
+            const threatList = document.getElementById('threatList');
+            threatList.innerHTML = '';
+            
+            if (result.threats && result.threats.length > 0) {
+                result.threats.forEach((threat, index) => {
+                    const threatItem = document.createElement('div');
+                    threatItem.className = `threat-item ${threat.type || ''}`;
+                    
+                    let details = '';
+                    if (threat.details) {
+                        details = `<small>${threat.details.join('<br>')}</small>`;
+                    } else if (threat.apis) {
+                        details = `<small>Suspicious APIs: ${threat.apis.join(', ')}</small>`;
+                    } else if (threat.rules) {
+                        details = `<small>Rules: ${threat.rules.join(', ')}</small>`;
+                    }
+                    
+                    threatItem.innerHTML = `
+                        <div class="d-flex justify-content-between">
+                            <strong>${index + 1}. ${threat.type || 'Unknown'}:</strong>
+                            ${threat.score ? `<span class="badge bg-warning">Score: ${threat.score}</span>` : ''}
+                        </div>
+                        <div class="mt-2">${threat.threat}</div>
+                        ${details}
+                    `;
+                    
+                    threatList.appendChild(threatItem);
+                });
+            } else {
+                threatList.innerHTML = '<p class="text-success"><i class="bi bi-check-circle"></i> কোনো হুমকি পাওয়া যায়নি</p>';
+            }
+            
+            // Update history and stats
+            loadHistory();
+            loadStats();
+        }
+        
+        async function quarantineFile() {
+            if (!currentScanResult) return;
+            
+            try {
+                const response = await fetch('/quarantine', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        scan_id: currentScanId
+                    })
+                });
+                
+                if (response.ok) {
+                    showToast('ফাইল কোয়ারেন্টাইনে সরানো হয়েছে', 'success');
+                } else {
+                    showToast('কোয়ারেন্টাইনে সরাতে সমস্যা হয়েছে', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('কোয়ারেন্টাইনে সরাতে সমস্যা হয়েছে', 'error');
+            }
+        }
+        
+        async function cancelScan() {
+            if (!currentScanId) return;
+            
+            try {
+                const response = await fetch(`/cancel/${currentScanId}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    showToast('স্ক্যান বাতিল করা হচ্ছে...', 'info');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+        
+        async function loadHistory() {
+            try {
+                const response = await fetch('/history');
+                const history = await response.json();
+                
+                const historyList = document.getElementById('historyList');
+                historyList.innerHTML = '';
+                
+                if (history.length === 0) {
+                    historyList.innerHTML = '<p class="text-center text-muted">কোনো স্ক্যান ইতিহাস নেই</p>';
+                    return;
+                }
+                
+                history.reverse().forEach(scan => {
+                    const item = document.createElement('div');
+                    item.className = 'history-item';
+                    item.onclick = () => showScanDetails(scan);
+                    
+                    const threatCount = scan.threats ? scan.threats.length : 0;
+                    
+                    item.innerHTML = `
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong>${scan.file_name}</strong>
+                                <br>
+                                <small>${new Date(scan.scan_time).toLocaleString()}</small>
+                                <br>
+                                <small>${formatFileSize(scan.file_size)}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="risk-badge risk-${scan.risk_level}">${scan.risk_level}</span>
+                                <br>
+                                <span class="badge ${threatCount > 0 ? 'bg-danger' : 'bg-success'}">
+                                    ${threatCount} হুমকি
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                    
+                    historyList.appendChild(item);
+                });
+                
+                // Add search functionality
+                document.getElementById('historySearch').addEventListener('keyup', function(e) {
+                    const searchTerm = e.target.value.toLowerCase();
+                    const items = historyList.getElementsByClassName('history-item');
+                    
+                    Array.from(items).forEach(item => {
+                        const text = item.textContent.toLowerCase();
+                        item.style.display = text.includes(searchTerm) ? 'block' : 'none';
+                    });
+                });
+                
+            } catch (error) {
+                console.error('Error loading history:', error);
+            }
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch('/stats');
+                const stats = await response.json();
+                
+                document.getElementById('totalScans').textContent = stats.total_scans;
+                document.getElementById('threatsFound').textContent = stats.threats_found;
+                document.getElementById('cleanFiles').textContent = stats.clean_files;
+                
+                // Calculate total data scanned
+                const historyResponse = await fetch('/history');
+                const history = await historyResponse.json();
+                const totalBytes = history.reduce((sum, scan) => sum + (scan.file_size || 0), 0);
+                document.getElementById('totalData').textContent = (totalBytes / (1024 * 1024 * 1024)).toFixed(2);
+                
+                // Update active scans
+                document.getElementById('activeScansCount').textContent = stats.active_scans;
+                document.getElementById('activeScansBadge').style.display = stats.active_scans > 0 ? 'block' : 'none';
+                
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        function updateActiveScansBadge() {
+            document.getElementById('activeScansCount').textContent = activeScans.size;
+            document.getElementById('activeScansBadge').style.display = activeScans.size > 0 ? 'block' : 'none';
+        }
+        
+        function showScanDetails(scan) {
+            displayScanResults(scan);
+            showSection('scan');
+        }
+        
+        function downloadReport() {
+            if (!currentScanResult) return;
+            
+            const report = {
+                ...currentScanResult,
+                download_time: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `scan_report_${currentScanResult.file_name}_${Date.now()}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+        
+        function resetUpload() {
+            document.getElementById('fileInfo').style.display = 'none';
+            dropZone.style.display = 'block';
+            document.getElementById('fileInput').value = '';
+            currentFile = null;
+            document.getElementById('fileSizeWarning').innerHTML = '';
+        }
+        
+        function resetScanner() {
+            document.getElementById('scanProgress').style.display = 'none';
+            document.getElementById('scanResults').style.display = 'none';
+            resetUpload();
+            currentScanId = null;
+            currentScanResult = null;
+            clearInterval(timerInterval);
+        }
+        
+        function showSection(section) {
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+            document.getElementById(section + '-section').style.display = 'block';
+            
+            if (section === 'history') {
+                loadHistory();
+            } else if (section === 'stats') {
+                loadStats();
+            } else if (section === 'active') {
+                loadActiveScans();
+            }
+        }
+        
+        function showToast(message, type = 'info') {
+            const toast = new bootstrap.Toast(document.getElementById('liveToast'));
+            const toastBody = document.getElementById('toastMessage');
+            
+            toastBody.textContent = message;
+            
+            const toastHeader = document.querySelector('.toast-header');
+            toastHeader.className = 'toast-header';
+            
+            if (type === 'success') {
+                toastHeader.classList.add('bg-success', 'text-white');
+            } else if (type === 'error') {
+                toastHeader.classList.add('bg-danger', 'text-white');
+            } else if (type === 'warning') {
+                toastHeader.classList.add('bg-warning');
+            }
+            
+            toast.show();
+        }
+        
+        // Initialize
+        loadStats();
+        loadHistory();
+        
+        // Periodic stats update
+        setInterval(loadStats, 5000);
+    </script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</body>
+</html>
